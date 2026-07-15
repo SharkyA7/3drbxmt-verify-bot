@@ -1,11 +1,24 @@
 import os
+import threading
 import discord
 from discord.ext import commands
 from discord import app_commands
 from dotenv import load_dotenv
+from flask import Flask
 
 load_dotenv()
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN")
+
+# ── FLASK KEEP-ALIVE SERVER ──────────────────────────────
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Bot is alive!"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
 
 intents = discord.Intents.default()
 intents.members = True
@@ -90,4 +103,9 @@ async def setup_verify_error(interaction: discord.Interaction, error):
         )
 
 
-bot.run(TOKEN)
+if __name__ == "__main__":
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+
+    bot.run(TOKEN)

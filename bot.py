@@ -66,6 +66,31 @@ class VerifyView(discord.ui.View):
             )
 
 
+ALLOWED_YOUTUBE_CHANNEL = "youtube-upload"
+YOUTUBE_PATTERNS = ["youtube.com", "youtu.be"]
+
+
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+
+    if message.channel.name != ALLOWED_YOUTUBE_CHANNEL:
+        content_lower = message.content.lower()
+        if any(pattern in content_lower for pattern in YOUTUBE_PATTERNS):
+            try:
+                await message.delete()
+                warning = await message.channel.send(
+                    f"{message.author.mention} ⚠ YouTube links are only allowed in <#{discord.utils.get(message.guild.text_channels, name=ALLOWED_YOUTUBE_CHANNEL).id if discord.utils.get(message.guild.text_channels, name=ALLOWED_YOUTUBE_CHANNEL) else ALLOWED_YOUTUBE_CHANNEL}>."
+                )
+                await warning.delete(delay=8)
+            except discord.Forbidden:
+                pass
+            return
+
+    await bot.process_commands(message)
+
+
 @bot.event
 async def on_ready():
     print(f"✓ Bot login sebagai {bot.user}")

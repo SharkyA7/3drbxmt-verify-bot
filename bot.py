@@ -41,14 +41,14 @@ class VerifyView(discord.ui.View):
         role = discord.utils.get(guild.roles, name=VERIFIED_ROLE_NAME)
         if role is None:
             await interaction.response.send_message(
-                f"⚠ Role '{VERIFIED_ROLE_NAME}' tidak ditemukan. Hubungi admin.",
+                f"⚠ Role '{VERIFIED_ROLE_NAME}' not found. Contact an admin.",
                 ephemeral=True
             )
             return
 
         if role in member.roles:
             await interaction.response.send_message(
-                "✅ Kamu sudah terverifikasi sebelumnya!",
+                "✅ You are already verified!",
                 ephemeral=True
             )
             return
@@ -56,12 +56,12 @@ class VerifyView(discord.ui.View):
         try:
             await member.add_roles(role)
             await interaction.response.send_message(
-                "🎉 Verifikasi berhasil! Selamat datang di server 3DRBXMT.",
+                "🎉 Verification successful! Welcome to the 3DRBXMT server.",
                 ephemeral=True
             )
         except discord.Forbidden:
             await interaction.response.send_message(
-                "⚠ Bot tidak punya izin untuk memberikan role ini. Hubungi admin.",
+                "⚠ The bot doesn't have permission to assign this role. Contact an admin.",
                 ephemeral=True
             )
 
@@ -78,28 +78,28 @@ async def on_ready():
         print(f"✗ Gagal sync commands: {e}")
 
 
-@bot.tree.command(name="setup_verify", description="Kirim pesan verifikasi dengan tombol (admin only)")
+@bot.tree.command(name="setup_verify", description="Send a verification message with a button (admin only)")
 @app_commands.checks.has_permissions(administrator=True)
 async def setup_verify(interaction: discord.Interaction):
     embed = discord.Embed(
-        title="🔒 Verifikasi Member",
+        title="🔒 Member Verification",
         description=(
-            "Selamat datang di **3DRBXMT Community**!\n\n"
-            "Klik tombol di bawah untuk verifikasi dan mendapatkan akses penuh ke server."
+            "Welcome to **3DRBXMT Community**!\n\n"
+            "Click the button below to verify and get full access to the server."
         ),
         color=0x00D4FF
     )
     embed.set_footer(text="3DRBXMT · Roblox 3D Model Tools")
 
     await interaction.channel.send(embed=embed, view=VerifyView())
-    await interaction.response.send_message("✓ Pesan verifikasi berhasil dikirim!", ephemeral=True)
+    await interaction.response.send_message("✓ Verification message sent successfully!", ephemeral=True)
 
 
 @setup_verify.error
 async def setup_verify_error(interaction: discord.Interaction, error):
     if isinstance(error, app_commands.MissingPermissions):
         await interaction.response.send_message(
-            "⚠ Kamu tidak punya izin untuk menjalankan command ini.",
+            "⚠ You don't have permission to run this command.",
             ephemeral=True
         )
 
@@ -122,7 +122,7 @@ class RoleSelect(discord.ui.Select):
             for name, emoji in ROLE_OPTIONS
         ]
         super().__init__(
-            placeholder="Pilih role kamu (bisa lebih dari satu)...",
+            placeholder="Choose your roles (you can select more than one)...",
             min_values=0,
             max_values=len(options),
             options=options,
@@ -154,13 +154,13 @@ class RoleSelect(discord.ui.Select):
 
         msg_parts = []
         if added:
-            msg_parts.append(f"✅ Ditambahkan: {', '.join(added)}")
+            msg_parts.append(f"✅ Added: {', '.join(added)}")
         if removed:
-            msg_parts.append(f"➖ Dihapus: {', '.join(removed)}")
+            msg_parts.append(f"➖ Removed: {', '.join(removed)}")
         if missing:
-            msg_parts.append(f"⚠ Role tidak ditemukan di server: {', '.join(missing)}")
+            msg_parts.append(f"⚠ Role(s) not found on server: {', '.join(missing)}")
         if not msg_parts:
-            msg_parts.append("Tidak ada perubahan.")
+            msg_parts.append("No changes made.")
 
         await interaction.response.send_message("\n".join(msg_parts), ephemeral=True)
 
@@ -171,24 +171,24 @@ class RoleSelectView(discord.ui.View):
         self.add_item(RoleSelect())
 
 
-@bot.tree.command(name="setup_roles", description="Kirim menu pemilihan role (admin only)")
+@bot.tree.command(name="setup_roles", description="Send the role selection menu (admin only)")
 @app_commands.checks.has_permissions(administrator=True)
 async def setup_roles(interaction: discord.Interaction):
     embed = discord.Embed(
-        title="🏷️ Pilih Role Kamu",
+        title="🏷️ Choose Your Roles",
         description=(
-            "Pilih role yang sesuai dengan software, skill, atau bahasa kamu.\n"
-            "Bisa pilih lebih dari satu sekaligus lewat dropdown di bawah.\n\n"
+            "Select the roles that match your software, skill, or language.\n"
+            "You can select more than one at once from the dropdown below.\n\n"
             "**Software/Skill:** Prisma 3D, Nomad Sculpt, 3D Modeler, 2D Artist\n"
-            "**Bahasa:** Indonesian, English, Other Languages\n\n"
-            "⚠ Role **Content Creator** dan **Moderator** tidak tersedia di sini — hubungi Dev/Admin langsung jika ingin role tersebut."
+            "**Language:** Indonesian, English, Other Languages\n\n"
+            "⚠ The **Content Creator** and **Moderator** roles are not available here — contact the Dev/Admin directly if you'd like those roles."
         ),
         color=0x00D4FF
     )
     embed.set_footer(text="3DRBXMT · Roblox 3D Model Tools")
 
     await interaction.channel.send(embed=embed, view=RoleSelectView())
-    await interaction.response.send_message("✓ Menu role berhasil dikirim!", ephemeral=True)
+    await interaction.response.send_message("✓ Role menu sent successfully!", ephemeral=True)
 
 
 @setup_roles.error

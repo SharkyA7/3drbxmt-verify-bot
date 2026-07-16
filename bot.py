@@ -483,17 +483,66 @@ async def clear_error(interaction: discord.Interaction, error):
         await interaction.response.send_message("⚠ You don't have permission to run this command.", ephemeral=True)
 
 
-warnings_store = {}
+def get_warnings(user_id):
+    try:
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/warnings",
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}"
+            },
+            params={"user_id": f"eq.{user_id}", "select": "id,reason", "order": "id.asc"},
+            timeout=5
+        )
+        return r.json() if r.status_code == 200 else []
+    except Exception:
+        return []
+
+
+def add_warning(user_id, reason):
+    try:
+        r = requests.post(
+            f"{SUPABASE_URL}/rest/v1/warnings",
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={"user_id": str(user_id), "reason": reason},
+            timeout=5
+        )
+        return r.status_code in (200, 201)
+    except Exception:
+        return False
+
+
+def remove_warning(warning_id):
+    try:
+        r = requests.delete(
+            f"{SUPABASE_URL}/rest/v1/warnings",
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}"
+            },
+            params={"id": f"eq.{warning_id}"},
+            timeout=5
+        )
+        return r.status_code in (200, 204)
+    except Exception:
+        return False
 
 
 @bot.tree.command(name="warn", description="Warn a member (mod only)")
 @app_commands.describe(member="Member to warn", reason="Reason for warning")
 @app_commands.checks.has_permissions(moderate_members=True)
 async def warn(interaction: discord.Interaction, member: discord.Member, reason: str):
-    user_id = str(member.id)
-    warnings_store.setdefault(user_id, []).append(reason)
-    count = len(warnings_store[user_id])
-    await interaction.response.send_message(
+    await interaction.response.defer()
+    success = add_warning(member.id, reason)
+    if not success:
+        await interaction.followup.send("✗ Failed to save warning.", ephemeral=True)
+        return
+    count = len(get_warnings(member.id))
+    await interaction.followup.send(
         f"⚠ {member.mention} has been warned. Reason: {reason}\nTotal warnings: {count}"
     )
 
@@ -508,14 +557,14 @@ async def warn_error(interaction: discord.Interaction, error):
 @app_commands.describe(member="Member to check")
 @app_commands.checks.has_permissions(moderate_members=True)
 async def warnings_cmd(interaction: discord.Interaction, member: discord.Member):
-    user_id = str(member.id)
-    reasons = warnings_store.get(user_id, [])
-    if not reasons:
-        await interaction.response.send_message(f"{member.mention} has no warnings.", ephemeral=True)
+    await interaction.response.defer(ephemeral=True)
+    entries = get_warnings(member.id)
+    if not entries:
+        await interaction.followup.send(f"{member.mention} has no warnings.", ephemeral=True)
         return
-    formatted = "\n".join(f"{i+1}. {r}" for i, r in enumerate(reasons))
-    await interaction.response.send_message(
-        f"⚠ Warning history for {member.mention} ({len(reasons)} total):\n{formatted}",
+    formatted = "\n".join(f"{i+1}. (ID:{e['id']}) {e['reason']}" for i, e in enumerate(entries))
+    await interaction.followup.send(
+        f"⚠ Warning history for {member.mention} ({len(entries)} total):\n{formatted}",
         ephemeral=True
     )
 
@@ -606,9 +655,8 @@ async def myinfo(interaction: discord.Interaction, member: discord.Member = None
     roles = [r.name for r in target.roles if r.name != "@everyone"]
     roles_text = ", ".join(roles) if roles else "No roles yet"
 
-    user_id = str(target.id)
-    reasons = warnings_store.get(user_id, [])
-    warning_count = len(reasons)
+    entries = get_warnings(target.id)
+    warning_count = len(entries)
 
     embed = discord.Embed(
         title=f"📋 Info for {target.display_name}",
@@ -621,8 +669,8 @@ async def myinfo(interaction: discord.Interaction, member: discord.Member = None
     embed.add_field(name="Roles", value=roles_text, inline=False)
     embed.add_field(name="Total Warnings", value=str(warning_count), inline=True)
 
-    if reasons:
-        formatted = "\n".join(f"{i+1}. {r}" for i, r in enumerate(reasons))
+    if entries:
+        formatted = "\n".join(f"{i+1}. {e['reason']}" for i, e in enumerate(entries))
         embed.add_field(name="Warning History", value=formatted, inline=False)
 
     embed.set_footer(text="3DRBX-MGT · Member Info")
@@ -768,19 +816,17 @@ async def unlock_error(interaction: discord.Interaction, error):
 
 
 @bot.tree.command(name="removewarning", description="Remove a specific warning from a member (mod only)")
-@app_commands.describe(member="Member to remove warning from", index="Warning number to remove (from /warnings list)")
+@app_commands.describe(member="Member to remove warning from", warning_id="Warning ID to remove (from /warnings list)")
 @app_commands.checks.has_permissions(moderate_members=True)
-async def removewarning(interaction: discord.Interaction, member: discord.Member, index: int):
-    user_id = str(member.id)
-    reasons = warnings_store.get(user_id, [])
-
-    if not reasons or index < 1 or index > len(reasons):
-        await interaction.response.send_message("⚠ Invalid warning number.", ephemeral=True)
+async def removewarning(interaction: discord.Interaction, member: discord.Member, warning_id: int):
+    await interaction.response.defer()
+    success = remove_warning(warning_id)
+    if not success:
+        await interaction.followup.send("⚠ Failed to remove warning (check the ID).", ephemeral=True)
         return
-
-    removed = reasons.pop(index - 1)
-    await interaction.response.send_message(
-        f"✅ Removed warning #{index} from {member.mention}: \"{removed}\"\nRemaining warnings: {len(reasons)}"
+    remaining = len(get_warnings(member.id))
+    await interaction.followup.send(
+        f"✅ Removed warning (ID:{warning_id}) from {member.mention}.\nRemaining warnings: {remaining}"
     )
 
 

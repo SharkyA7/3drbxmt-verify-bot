@@ -559,10 +559,20 @@ async def botinfo(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 
+PROTECTED_ROLES = ["Dev", "Moderator", "BOT", "Protogen Security"]
+
+
 @bot.tree.command(name="revokerole", description="Revoke a role from a member as punishment (mod only)")
 @app_commands.describe(member="Member to revoke role from", role="Role to revoke", reason="Reason for revoking")
 @app_commands.checks.has_permissions(manage_roles=True)
 async def revokerole(interaction: discord.Interaction, member: discord.Member, role: discord.Role, reason: str = "No reason provided"):
+    if role.name in PROTECTED_ROLES:
+        await interaction.response.send_message(
+            f"⛔ The role **{role.name}** is protected and cannot be revoked through this command.",
+            ephemeral=True
+        )
+        return
+
     if role not in member.roles:
         await interaction.response.send_message(
             f"⚠ {member.mention} doesn't have the role **{role.name}**.",

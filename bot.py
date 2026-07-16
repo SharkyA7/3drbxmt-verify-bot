@@ -410,6 +410,155 @@ async def statusweb(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed, view=StatusToggleView())
 
 
+# ── MODERATION COMMANDS ───────────────────────────────────
+
+@bot.tree.command(name="kick", description="Kick a member from the server (mod only)")
+@app_commands.describe(member="Member to kick", reason="Reason for kicking")
+@app_commands.checks.has_permissions(kick_members=True)
+async def kick(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
+    try:
+        await member.kick(reason=reason)
+        await interaction.response.send_message(f"👢 {member.mention} has been kicked. Reason: {reason}")
+    except discord.Forbidden:
+        await interaction.response.send_message("⚠ I don't have permission to kick this member.", ephemeral=True)
+
+
+@kick.error
+async def kick_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message("⚠ You don't have permission to run this command.", ephemeral=True)
+
+
+@bot.tree.command(name="ban", description="Ban a member from the server (mod only)")
+@app_commands.describe(member="Member to ban", reason="Reason for banning")
+@app_commands.checks.has_permissions(ban_members=True)
+async def ban(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
+    try:
+        await member.ban(reason=reason)
+        await interaction.response.send_message(f"🔨 {member.mention} has been banned. Reason: {reason}")
+    except discord.Forbidden:
+        await interaction.response.send_message("⚠ I don't have permission to ban this member.", ephemeral=True)
+
+
+@ban.error
+async def ban_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message("⚠ You don't have permission to run this command.", ephemeral=True)
+
+
+@bot.tree.command(name="timeout", description="Timeout (mute) a member for a duration (mod only)")
+@app_commands.describe(member="Member to timeout", minutes="Duration in minutes", reason="Reason for timeout")
+@app_commands.checks.has_permissions(moderate_members=True)
+async def timeout(interaction: discord.Interaction, member: discord.Member, minutes: int, reason: str = "No reason provided"):
+    import datetime
+    try:
+        duration = datetime.timedelta(minutes=minutes)
+        await member.timeout(duration, reason=reason)
+        await interaction.response.send_message(f"🔇 {member.mention} has been timed out for {minutes} minute(s). Reason: {reason}")
+    except discord.Forbidden:
+        await interaction.response.send_message("⚠ I don't have permission to timeout this member.", ephemeral=True)
+
+
+@timeout.error
+async def timeout_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message("⚠ You don't have permission to run this command.", ephemeral=True)
+
+
+@bot.tree.command(name="clear", description="Delete a number of recent messages (mod only)")
+@app_commands.describe(amount="Number of messages to delete (max 100)")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def clear(interaction: discord.Interaction, amount: int):
+    if amount < 1 or amount > 100:
+        await interaction.response.send_message("⚠ Amount must be between 1 and 100.", ephemeral=True)
+        return
+    await interaction.response.defer(ephemeral=True)
+    deleted = await interaction.channel.purge(limit=amount)
+    await interaction.followup.send(f"🧹 Deleted {len(deleted)} message(s).", ephemeral=True)
+
+
+@clear.error
+async def clear_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message("⚠ You don't have permission to run this command.", ephemeral=True)
+
+
+warnings_store = {}
+
+
+@bot.tree.command(name="warn", description="Warn a member (mod only)")
+@app_commands.describe(member="Member to warn", reason="Reason for warning")
+@app_commands.checks.has_permissions(moderate_members=True)
+async def warn(interaction: discord.Interaction, member: discord.Member, reason: str):
+    user_id = str(member.id)
+    warnings_store.setdefault(user_id, []).append(reason)
+    count = len(warnings_store[user_id])
+    await interaction.response.send_message(
+        f"⚠ {member.mention} has been warned. Reason: {reason}\nTotal warnings: {count}"
+    )
+
+
+@warn.error
+async def warn_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message("⚠ You don't have permission to run this command.", ephemeral=True)
+
+
+@bot.tree.command(name="warnings", description="Check a member's warning history (mod only)")
+@app_commands.describe(member="Member to check")
+@app_commands.checks.has_permissions(moderate_members=True)
+async def warnings_cmd(interaction: discord.Interaction, member: discord.Member):
+    user_id = str(member.id)
+    reasons = warnings_store.get(user_id, [])
+    if not reasons:
+        await interaction.response.send_message(f"{member.mention} has no warnings.", ephemeral=True)
+        return
+    formatted = "\n".join(f"{i+1}. {r}" for i, r in enumerate(reasons))
+    await interaction.response.send_message(
+        f"⚠ Warning history for {member.mention} ({len(reasons)} total):\n{formatted}",
+        ephemeral=True
+    )
+
+
+@warnings_cmd.error
+async def warnings_cmd_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message("⚠ You don't have permission to run this command.", ephemeral=True)
+
+
+# ── SERVER STATS & BOT INFO ────────────────────────────────
+
+@bot.tree.command(name="serverstats", description="Show server statistics")
+async def serverstats(interaction: discord.Interaction):
+    guild = interaction.guild
+    total_members = guild.member_count
+    online_members = sum(1 for m in guild.members if m.status != discord.Status.offline)
+    text_channels = len(guild.text_channels)
+    voice_channels = len(guild.voice_channels)
+    role_count = len(guild.roles)
+
+    embed = discord.Embed(title=f"📊 {guild.name} Stats", color=0x00D4FF)
+    embed.add_field(name="Total Members", value=str(total_members), inline=True)
+    embed.add_field(name="Online Members", value=str(online_members), inline=True)
+    embed.add_field(name="Text Channels", value=str(text_channels), inline=True)
+    embed.add_field(name="Voice Channels", value=str(voice_channels), inline=True)
+    embed.add_field(name="Roles", value=str(role_count), inline=True)
+    embed.set_thumbnail(url=guild.icon.url if guild.icon else None)
+
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="botinfo", description="Show bot information (ping, uptime, etc)")
+async def botinfo(interaction: discord.Interaction):
+    latency_ms = round(bot.latency * 1000)
+    embed = discord.Embed(title="🤖 Protogen Security Info", color=0x00D4FF)
+    embed.add_field(name="Ping", value=f"{latency_ms}ms", inline=True)
+    embed.add_field(name="Servers", value=str(len(bot.guilds)), inline=True)
+    embed.set_footer(text="3DRBX-MGT · Protogen Security")
+
+    await interaction.response.send_message(embed=embed)
+
+
 if __name__ == "__main__":
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.daemon = True

@@ -657,10 +657,15 @@ async def help_command(interaction: discord.Interaction):
             "`/kick` — Kick a member\n"
             "`/ban` — Ban a member\n"
             "`/timeout` — Timeout a member\n"
+            "`/untimeout` — Remove timeout early\n"
             "`/clear` — Bulk delete messages\n"
             "`/warn` — Warn a member\n"
             "`/warnings` — View a member's warning history\n"
-            "`/revokerole` — Revoke a role as punishment"
+            "`/removewarning` — Remove a specific warning\n"
+            "`/revokerole` — Revoke a role as punishment\n"
+            "`/slowmode` — Set channel slowmode delay\n"
+            "`/lock` / `/unlock` — Lock or unlock a channel\n"
+            "`/nickname` — Change a member's nickname"
         ),
         inline=False
     )
@@ -679,6 +684,125 @@ async def help_command(interaction: discord.Interaction):
     embed.set_footer(text="3DRBX-MGT · Protogen Security")
 
     await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+@bot.tree.command(name="untimeout", description="Remove timeout from a member early (mod only)")
+@app_commands.describe(member="Member to remove timeout from")
+@app_commands.checks.has_permissions(moderate_members=True)
+async def untimeout(interaction: discord.Interaction, member: discord.Member):
+    try:
+        await member.timeout(None)
+        await interaction.response.send_message(f"🔊 Timeout removed for {member.mention}.")
+    except discord.Forbidden:
+        await interaction.response.send_message("⚠ I don't have permission to do this.", ephemeral=True)
+
+
+@untimeout.error
+async def untimeout_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message("⚠ You don't have permission to run this command.", ephemeral=True)
+
+
+@bot.tree.command(name="slowmode", description="Set slowmode delay for this channel (mod only)")
+@app_commands.describe(seconds="Delay in seconds (0 to disable, max 21600)")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def slowmode(interaction: discord.Interaction, seconds: int):
+    if seconds < 0 or seconds > 21600:
+        await interaction.response.send_message("⚠ Seconds must be between 0 and 21600.", ephemeral=True)
+        return
+    try:
+        await interaction.channel.edit(slowmode_delay=seconds)
+        if seconds == 0:
+            await interaction.response.send_message("✅ Slowmode disabled for this channel.")
+        else:
+            await interaction.response.send_message(f"🐢 Slowmode set to {seconds} second(s) for this channel.")
+    except discord.Forbidden:
+        await interaction.response.send_message("⚠ I don't have permission to do this.", ephemeral=True)
+
+
+@slowmode.error
+async def slowmode_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message("⚠ You don't have permission to run this command.", ephemeral=True)
+
+
+@bot.tree.command(name="lock", description="Lock this channel so only mods can send messages (mod only)")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def lock(interaction: discord.Interaction):
+    try:
+        overwrite = interaction.channel.overwrites_for(interaction.guild.default_role)
+        overwrite.send_messages = False
+        await interaction.channel.set_permissions(interaction.guild.default_role, overwrite=overwrite)
+        await interaction.response.send_message("🔒 Channel locked. Only mods can send messages now.")
+    except discord.Forbidden:
+        await interaction.response.send_message("⚠ I don't have permission to do this.", ephemeral=True)
+
+
+@lock.error
+async def lock_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message("⚠ You don't have permission to run this command.", ephemeral=True)
+
+
+@bot.tree.command(name="unlock", description="Unlock this channel so everyone can send messages again (mod only)")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def unlock(interaction: discord.Interaction):
+    try:
+        overwrite = interaction.channel.overwrites_for(interaction.guild.default_role)
+        overwrite.send_messages = None
+        await interaction.channel.set_permissions(interaction.guild.default_role, overwrite=overwrite)
+        await interaction.response.send_message("🔓 Channel unlocked. Everyone can send messages again.")
+    except discord.Forbidden:
+        await interaction.response.send_message("⚠ I don't have permission to do this.", ephemeral=True)
+
+
+@unlock.error
+async def unlock_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message("⚠ You don't have permission to run this command.", ephemeral=True)
+
+
+@bot.tree.command(name="removewarning", description="Remove a specific warning from a member (mod only)")
+@app_commands.describe(member="Member to remove warning from", index="Warning number to remove (from /warnings list)")
+@app_commands.checks.has_permissions(moderate_members=True)
+async def removewarning(interaction: discord.Interaction, member: discord.Member, index: int):
+    user_id = str(member.id)
+    reasons = warnings_store.get(user_id, [])
+
+    if not reasons or index < 1 or index > len(reasons):
+        await interaction.response.send_message("⚠ Invalid warning number.", ephemeral=True)
+        return
+
+    removed = reasons.pop(index - 1)
+    await interaction.response.send_message(
+        f"✅ Removed warning #{index} from {member.mention}: \"{removed}\"\nRemaining warnings: {len(reasons)}"
+    )
+
+
+@removewarning.error
+async def removewarning_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message("⚠ You don't have permission to run this command.", ephemeral=True)
+
+
+@bot.tree.command(name="nickname", description="Change a member's nickname (mod only)")
+@app_commands.describe(member="Member to rename", new_nickname="New nickname (leave empty to reset)")
+@app_commands.checks.has_permissions(manage_nicknames=True)
+async def nickname(interaction: discord.Interaction, member: discord.Member, new_nickname: str = None):
+    try:
+        await member.edit(nick=new_nickname)
+        if new_nickname:
+            await interaction.response.send_message(f"✅ {member.mention}'s nickname changed to **{new_nickname}**.")
+        else:
+            await interaction.response.send_message(f"✅ {member.mention}'s nickname has been reset.")
+    except discord.Forbidden:
+        await interaction.response.send_message("⚠ I don't have permission to do this (check role hierarchy).", ephemeral=True)
+
+
+@nickname.error
+async def nickname_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message("⚠ You don't have permission to run this command.", ephemeral=True)
 
 
 if __name__ == "__main__":

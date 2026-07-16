@@ -250,9 +250,16 @@ async def setup_roles(interaction: discord.Interaction):
 async def setup_roles_error(interaction: discord.Interaction, error):
     if isinstance(error, app_commands.MissingPermissions):
         await interaction.response.send_message(
-            "⚠ Kamu tidak punya izin untuk menjalankan command ini.",
+            "⚠ You don't have permission to run this command.",
             ephemeral=True
         )
+
+
+@bot.tree.command(name="checkproto", description="Check if Protogen Security is online and working")
+async def checkproto(interaction: discord.Interaction):
+    await interaction.response.send_message(
+        "proto security is here, just watching the community and spying on the DEV =w="
+    )
 
 
 if __name__ == "__main__":

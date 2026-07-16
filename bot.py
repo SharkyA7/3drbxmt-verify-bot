@@ -1,5 +1,6 @@
 import os
 import threading
+import requests
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -8,6 +9,45 @@ from flask import Flask
 
 load_dotenv()
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+
+
+def get_web_maintenance_state():
+    try:
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/app_state",
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}"
+            },
+            params={"key": "eq.maintenance_mode", "select": "value"},
+            timeout=5
+        )
+        data = r.json()
+        if data and len(data) > 0:
+            return data[0].get("value", False)
+        return False
+    except Exception:
+        return None  # None = error/unknown
+
+
+def set_web_maintenance_state(active):
+    try:
+        requests.patch(
+            f"{SUPABASE_URL}/rest/v1/app_state",
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json"
+            },
+            params={"key": "eq.maintenance_mode"},
+            json={"value": active},
+            timeout=5
+        )
+        return True
+    except Exception:
+        return False
 
 # ── FLASK KEEP-ALIVE SERVER ──────────────────────────────
 app = Flask(__name__)
@@ -260,6 +300,108 @@ async def checkproto(interaction: discord.Interaction):
     await interaction.response.send_message(
         "proto security is here, just watching the community and spying on the DEV =w="
     )
+
+
+ANNOUNCEMENT_CHANNEL_NAME = "announcement"
+
+
+@bot.tree.command(name="announce", description="Send an announcement to the announcement channel (admin only)")
+@app_commands.describe(title="Title of the announcement", message="The announcement content")
+@app_commands.checks.has_permissions(administrator=True)
+async def announce(interaction: discord.Interaction, title: str, message: str):
+    channel = discord.utils.get(interaction.guild.text_channels, name=ANNOUNCEMENT_CHANNEL_NAME)
+    if channel is None:
+        await interaction.response.send_message(
+            f"⚠ Channel #{ANNOUNCEMENT_CHANNEL_NAME} not found.",
+            ephemeral=True
+        )
+        return
+
+    embed = discord.Embed(
+        title=f"📢 {title}",
+        description=message,
+        color=0x00D4FF
+    )
+    embed.set_footer(text="3DRBX-MGT · Official Announcement")
+
+    try:
+        await channel.send(content="@here", embed=embed)
+        await interaction.response.send_message(
+            f"✓ Announcement sent to #{ANNOUNCEMENT_CHANNEL_NAME}!",
+            ephemeral=True
+        )
+    except discord.Forbidden:
+        await interaction.response.send_message(
+            "⚠ The bot doesn't have permission to send messages in that channel.",
+            ephemeral=True
+        )
+
+
+@announce.error
+async def announce_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message(
+            "⚠ You don't have permission to run this command.",
+            ephemeral=True
+        )
+
+
+class StatusToggleView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=60)
+
+    @discord.ui.button(label="🔧 Set to Maintenance", style=discord.ButtonStyle.danger)
+    async def set_maintenance(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message(
+                "⚠ Only admins can change the website status.",
+                ephemeral=True
+            )
+            return
+        success = set_web_maintenance_state(True)
+        if success:
+            await interaction.response.edit_message(
+                content="🔧 Website status set to **MAINTENANCE**.",
+                embed=None, view=None
+            )
+        else:
+            await interaction.response.send_message("✗ Failed to update status.", ephemeral=True)
+
+    @discord.ui.button(label="✅ Set to Live", style=discord.ButtonStyle.success)
+    async def set_live(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message(
+                "⚠ Only admins can change the website status.",
+                ephemeral=True
+            )
+            return
+        success = set_web_maintenance_state(False)
+        if success:
+            await interaction.response.edit_message(
+                content="✅ Website status set to **LIVE**.",
+                embed=None, view=None
+            )
+        else:
+            await interaction.response.send_message("✗ Failed to update status.", ephemeral=True)
+
+
+@bot.tree.command(name="statusweb", description="Check 3DRBXMT website status (maintenance or live)")
+async def statusweb(interaction: discord.Interaction):
+    state = get_web_maintenance_state()
+
+    if state is None:
+        await interaction.response.send_message("⚠ Unable to fetch website status right now.", ephemeral=True)
+        return
+
+    status_text = "🔧 **MAINTENANCE**" if state else "✅ **LIVE**"
+    embed = discord.Embed(
+        title="🌐 3DRBXMT Website Status",
+        description=f"Current status: {status_text}",
+        color=0xFF3355 if state else 0x00D4FF
+    )
+    embed.set_footer(text="getrbx3d.qzz.io")
+
+    await interaction.response.send_message(embed=embed, view=StatusToggleView())
 
 
 if __name__ == "__main__":

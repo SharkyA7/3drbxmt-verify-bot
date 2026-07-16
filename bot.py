@@ -598,6 +598,38 @@ async def revokerole_error(interaction: discord.Interaction, error):
         await interaction.response.send_message("⚠ You don't have permission to run this command.", ephemeral=True)
 
 
+@bot.tree.command(name="myinfo", description="Check your own info (or another member's) including warnings")
+@app_commands.describe(member="Member to check (leave empty to check yourself)")
+async def myinfo(interaction: discord.Interaction, member: discord.Member = None):
+    target = member or interaction.user
+
+    roles = [r.name for r in target.roles if r.name != "@everyone"]
+    roles_text = ", ".join(roles) if roles else "No roles yet"
+
+    user_id = str(target.id)
+    reasons = warnings_store.get(user_id, [])
+    warning_count = len(reasons)
+
+    embed = discord.Embed(
+        title=f"📋 Info for {target.display_name}",
+        color=0x00D4FF
+    )
+    embed.set_thumbnail(url=target.display_avatar.url)
+    embed.add_field(name="Username", value=str(target), inline=True)
+    embed.add_field(name="Joined Server", value=target.joined_at.strftime("%B %d, %Y") if target.joined_at else "Unknown", inline=True)
+    embed.add_field(name="Account Created", value=target.created_at.strftime("%B %d, %Y"), inline=True)
+    embed.add_field(name="Roles", value=roles_text, inline=False)
+    embed.add_field(name="Total Warnings", value=str(warning_count), inline=True)
+
+    if reasons:
+        formatted = "\n".join(f"{i+1}. {r}" for i, r in enumerate(reasons))
+        embed.add_field(name="Warning History", value=formatted, inline=False)
+
+    embed.set_footer(text="3DRBX-MGT · Member Info")
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
 if __name__ == "__main__":
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.daemon = True

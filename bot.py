@@ -676,7 +676,12 @@ async def help_command(interaction: discord.Interaction):
             "`/setup_verify` — Send the verification message\n"
             "`/setup_roles` — Send the self-role selection menu\n"
             "`/announce` — Send an announcement to #announcement\n"
-            "`/statusweb` toggle buttons — Change website status"
+            "`/statusweb` toggle buttons — Change website status\n\n"
+            "**🔴 Dev Only (restricted to a single User ID):**\n"
+            "`/dm` — Send a DM to a user as the bot\n"
+            "`/broadcast` — Send a message to all channels\n"
+            "`/reload` — Resync slash commands\n"
+            "`/shutdown` — Safely shut down the bot"
         ),
         inline=False
     )
@@ -803,6 +808,69 @@ async def nickname(interaction: discord.Interaction, member: discord.Member, new
 async def nickname_error(interaction: discord.Interaction, error):
     if isinstance(error, app_commands.MissingPermissions):
         await interaction.response.send_message("⚠ You don't have permission to run this command.", ephemeral=True)
+
+
+DEV_USER_ID = 980731561433530388
+
+
+def is_dev(interaction: discord.Interaction) -> bool:
+    return interaction.user.id == DEV_USER_ID
+
+
+@bot.tree.command(name="dm", description="Send a DM to a user as the bot (Dev only)")
+@app_commands.describe(user="User to DM", message="Message content")
+async def dm(interaction: discord.Interaction, user: discord.User, message: str):
+    if not is_dev(interaction):
+        await interaction.response.send_message("⛔ This command is restricted to the Dev only.", ephemeral=True)
+        return
+    try:
+        await user.send(f"📩 Message from 3DRBX-MGT Dev:\n\n{message}")
+        await interaction.response.send_message(f"✓ DM sent to {user.mention}.", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.response.send_message("⚠ Couldn't DM this user (they may have DMs disabled).", ephemeral=True)
+
+
+@bot.tree.command(name="broadcast", description="Send a message to all text channels (Dev only)")
+@app_commands.describe(message="Message to broadcast to all channels")
+async def broadcast(interaction: discord.Interaction, message: str):
+    if not is_dev(interaction):
+        await interaction.response.send_message("⛔ This command is restricted to the Dev only.", ephemeral=True)
+        return
+
+    await interaction.response.defer(ephemeral=True)
+    sent_count = 0
+    for channel in interaction.guild.text_channels:
+        try:
+            await channel.send(message)
+            sent_count += 1
+        except discord.Forbidden:
+            continue
+
+    await interaction.followup.send(f"✓ Broadcast sent to {sent_count} channel(s).", ephemeral=True)
+
+
+@bot.tree.command(name="reload", description="Resync slash commands without restarting the bot (Dev only)")
+async def reload(interaction: discord.Interaction):
+    if not is_dev(interaction):
+        await interaction.response.send_message("⛔ This command is restricted to the Dev only.", ephemeral=True)
+        return
+
+    await interaction.response.defer(ephemeral=True)
+    try:
+        synced = await bot.tree.sync()
+        await interaction.followup.send(f"✓ Resynced {len(synced)} slash command(s).", ephemeral=True)
+    except Exception as e:
+        await interaction.followup.send(f"✗ Failed to resync: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="shutdown", description="Safely shut down the bot (Dev only)")
+async def shutdown(interaction: discord.Interaction):
+    if not is_dev(interaction):
+        await interaction.response.send_message("⛔ This command is restricted to the Dev only.", ephemeral=True)
+        return
+
+    await interaction.response.send_message("🔴 Shutting down... See you soon!", ephemeral=True)
+    await bot.close()
 
 
 if __name__ == "__main__":

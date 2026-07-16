@@ -630,6 +630,57 @@ async def myinfo(interaction: discord.Interaction, member: discord.Member = None
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
+@bot.tree.command(name="help", description="Show all available commands and who can use them")
+async def help_command(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title="📖 3DRBX-MGT Bot Commands",
+        description="List of all available commands and access level.",
+        color=0x00D4FF
+    )
+
+    embed.add_field(
+        name="👤 Everyone",
+        value=(
+            "`/checkproto` — Check if the bot is online\n"
+            "`/statusweb` — Check website status (live/maintenance)\n"
+            "`/myinfo [member]` — View your or another member's info & warnings\n"
+            "`/serverstats` — View server statistics\n"
+            "`/botinfo` — View bot info (ping, uptime)\n"
+            "`/help` — Show this command list"
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="🛡️ Moderator Only",
+        value=(
+            "`/kick` — Kick a member\n"
+            "`/ban` — Ban a member\n"
+            "`/timeout` — Timeout a member\n"
+            "`/clear` — Bulk delete messages\n"
+            "`/warn` — Warn a member\n"
+            "`/warnings` — View a member's warning history\n"
+            "`/revokerole` — Revoke a role as punishment"
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="👑 Admin/Dev Only",
+        value=(
+            "`/setup_verify` — Send the verification message\n"
+            "`/setup_roles` — Send the self-role selection menu\n"
+            "`/announce` — Send an announcement to #announcement\n"
+            "`/statusweb` toggle buttons — Change website status"
+        ),
+        inline=False
+    )
+
+    embed.set_footer(text="3DRBX-MGT · Protogen Security")
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
 if __name__ == "__main__":
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.daemon = True

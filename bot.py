@@ -91,6 +91,36 @@ async def on_message(message):
     await bot.process_commands(message)
 
 
+WELCOME_CHANNEL_NAME = "welcome"
+
+
+@bot.event
+async def on_member_join(member):
+    channel = discord.utils.get(member.guild.text_channels, name=WELCOME_CHANNEL_NAME)
+    if channel is None:
+        return
+
+    verify_channel = discord.utils.get(member.guild.text_channels, name="verify")
+    verify_mention = f"<#{verify_channel.id}>" if verify_channel else "#verify"
+
+    embed = discord.Embed(
+        title="🎉 Welcome to 3RBX-MGT",
+        description=(
+            f"Hey {member.mention}!\n\n"
+            f"Welcome to **3D ROBLOX MODEL MOBILE GLOBAL TOOLS** Official.\n\n"
+            f"Don't forget to read the **RULES** in {verify_mention} channel and get verified to unlock full access!"
+        ),
+        color=0x00D4FF
+    )
+    embed.set_thumbnail(url=member.display_avatar.url)
+    embed.set_footer(text=f"Member #{member.guild.member_count} · 3DRBXMT")
+
+    try:
+        await channel.send(embed=embed)
+    except discord.Forbidden:
+        pass
+
+
 @bot.event
 async def on_ready():
     print(f"✓ Bot login sebagai {bot.user}")

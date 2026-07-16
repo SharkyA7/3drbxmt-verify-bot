@@ -358,14 +358,17 @@ class StatusToggleView(discord.ui.View):
                 ephemeral=True
             )
             return
+        await interaction.response.defer()
         success = set_web_maintenance_state(True)
         if success:
-            await interaction.response.edit_message(
+            await interaction.edit_original_response(
                 content="🔧 Website status set to **MAINTENANCE**.",
                 embed=None, view=None
             )
         else:
-            await interaction.response.send_message("✗ Failed to update status.", ephemeral=True)
+            await interaction.edit_original_response(
+                content="✗ Failed to update status.", embed=None, view=None
+            )
 
     @discord.ui.button(label="✅ Set to Live", style=discord.ButtonStyle.success)
     async def set_live(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -375,14 +378,17 @@ class StatusToggleView(discord.ui.View):
                 ephemeral=True
             )
             return
+        await interaction.response.defer()
         success = set_web_maintenance_state(False)
         if success:
-            await interaction.response.edit_message(
+            await interaction.edit_original_response(
                 content="✅ Website status set to **LIVE**.",
                 embed=None, view=None
             )
         else:
-            await interaction.response.send_message("✗ Failed to update status.", ephemeral=True)
+            await interaction.edit_original_response(
+                content="✗ Failed to update status.", embed=None, view=None
+            )
 
 
 @bot.tree.command(name="statusweb", description="Check 3DRBXMT website status (maintenance or live)")

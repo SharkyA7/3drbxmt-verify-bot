@@ -559,6 +559,35 @@ async def botinfo(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 
+@bot.tree.command(name="revokerole", description="Revoke a role from a member as punishment (mod only)")
+@app_commands.describe(member="Member to revoke role from", role="Role to revoke", reason="Reason for revoking")
+@app_commands.checks.has_permissions(manage_roles=True)
+async def revokerole(interaction: discord.Interaction, member: discord.Member, role: discord.Role, reason: str = "No reason provided"):
+    if role not in member.roles:
+        await interaction.response.send_message(
+            f"⚠ {member.mention} doesn't have the role **{role.name}**.",
+            ephemeral=True
+        )
+        return
+
+    try:
+        await member.remove_roles(role, reason=reason)
+        await interaction.response.send_message(
+            f"🚫 Role **{role.name}** has been revoked from {member.mention}.\nReason: {reason}"
+        )
+    except discord.Forbidden:
+        await interaction.response.send_message(
+            "⚠ I don't have permission to remove this role (check role hierarchy).",
+            ephemeral=True
+        )
+
+
+@revokerole.error
+async def revokerole_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message("⚠ You don't have permission to run this command.", ephemeral=True)
+
+
 if __name__ == "__main__":
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.daemon = True

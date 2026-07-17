@@ -888,23 +888,34 @@ async def dm(interaction: discord.Interaction, user: discord.User, message: str)
         await interaction.response.send_message("⚠ Couldn't DM this user (they may have DMs disabled).", ephemeral=True)
 
 
-@bot.tree.command(name="broadcast", description="Send a message to all text channels (Dev only)")
-@app_commands.describe(message="Message to broadcast to all channels")
-async def broadcast(interaction: discord.Interaction, message: str):
+@bot.tree.command(name="broadcast", description="Send a message to one or all text channels (Dev only)")
+@app_commands.describe(
+    message="Message to broadcast",
+    target="Choose a specific channel, or leave empty to send to ALL channels",
+    minutes_before_delete="Auto-delete after this many minutes (default 120 = 2 hours, 0 = never delete)"
+)
+async def broadcast(interaction: discord.Interaction, message: str, target: discord.TextChannel = None, minutes_before_delete: int = 120):
     if not is_dev(interaction):
         await interaction.response.send_message("⛔ This command is restricted to the Dev only.", ephemeral=True)
         return
 
     await interaction.response.defer(ephemeral=True)
+
+    channels = [target] if target else list(interaction.guild.text_channels)
     sent_count = 0
-    for channel in interaction.guild.text_channels:
+
+    for channel in channels:
         try:
-            await channel.send(message)
+            sent_msg = await channel.send(message)
             sent_count += 1
+            if minutes_before_delete > 0:
+                await sent_msg.delete(delay=minutes_before_delete * 60)
         except discord.Forbidden:
             continue
 
-    await interaction.followup.send(f"✓ Broadcast sent to {sent_count} channel(s).", ephemeral=True)
+    scope_text = f"#{target.name}" if target else f"{sent_count} channel(s)"
+    delete_text = f"auto-delete in {minutes_before_delete} min" if minutes_before_delete > 0 else "no auto-delete"
+    await interaction.followup.send(f"✓ Broadcast sent to {scope_text} ({delete_text}).", ephemeral=True)
 
 
 @bot.tree.command(name="reload", description="Resync slash commands without restarting the bot (Dev only)")

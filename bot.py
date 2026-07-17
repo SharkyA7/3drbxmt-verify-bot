@@ -207,6 +207,7 @@ ROLE_OPTIONS = [
     ("Indonesian", "🇮🇩"),
     ("English", "🇬🇧"),
     ("Other Languages", "🌐"),
+    ("YouTube Ping", "🔔"),
 ]
 
 
@@ -940,6 +941,51 @@ async def shutdown(interaction: discord.Interaction):
 
     await interaction.response.send_message("🔴 Shutting down... See you soon!", ephemeral=True)
     await bot.close()
+
+
+YOUTUBE_UPLOAD_CHANNEL = "youtube-upload"
+
+
+@bot.tree.command(name="postvideo", description="Post a new YouTube video (Content Creator only)")
+@app_commands.describe(title="Video title", link="YouTube video link", description="Video description (optional)")
+async def postvideo(interaction: discord.Interaction, title: str, link: str, description: str = None):
+    has_role = any(r.name == "Content Creator" for r in interaction.user.roles)
+    if not has_role:
+        await interaction.response.send_message(
+            "⛔ This command is restricted to members with the **Content Creator** role.",
+            ephemeral=True
+        )
+        return
+
+    channel = discord.utils.get(interaction.guild.text_channels, name=YOUTUBE_UPLOAD_CHANNEL)
+    if channel is None:
+        await interaction.response.send_message(
+            f"⚠ Channel #{YOUTUBE_UPLOAD_CHANNEL} not found.",
+            ephemeral=True
+        )
+        return
+
+    ping_role = discord.utils.get(interaction.guild.roles, name="YouTube Ping")
+    ping_mention = ping_role.mention if ping_role else ""
+
+    embed = discord.Embed(
+        title=f"🎬 {title}",
+        description=description or "No description provided.",
+        color=0xFF0000,
+        url=link
+    )
+    embed.add_field(name="Watch here", value=link, inline=False)
+    embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+    embed.set_footer(text="3DRBX-MGT · New Upload")
+
+    try:
+        await channel.send(content=ping_mention, embed=embed)
+        await interaction.response.send_message(f"✓ Video posted to #{YOUTUBE_UPLOAD_CHANNEL}!", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.response.send_message(
+            "⚠ The bot doesn't have permission to post in that channel.",
+            ephemeral=True
+        )
 
 
 if __name__ == "__main__":

@@ -988,6 +988,34 @@ async def postvideo(interaction: discord.Interaction, title: str, link: str, des
         )
 
 
+@bot.tree.command(name="deletedpythonfileproto", description="Warn the channel about command spam (mod only)")
+@app_commands.checks.has_permissions(moderate_members=True)
+async def deletedpythonfileproto(interaction: discord.Interaction):
+    await interaction.response.send_message("💀 `bot.py` has crashed due to excessive command spam...")
+    msg = await interaction.original_response()
+
+    import asyncio
+    await asyncio.sleep(1.5)
+    await msg.edit(content="💀 `bot.py` has crashed due to excessive command spam...\n`Traceback: MemoryError`")
+    await asyncio.sleep(1.5)
+    await msg.edit(content=(
+        "💀 `bot.py` has crashed due to excessive command spam...\n`Traceback: MemoryError`\n\n"
+        "⚠️ Protogen Security is shutting down to prevent damage..."
+    ))
+    await asyncio.sleep(2)
+    await msg.edit(content=(
+        "💀 `bot.py` has crashed due to excessive command spam...\n`Traceback: MemoryError`\n\n"
+        "⚠️ Protogen Security is shutting down to prevent damage...\n\n"
+        "Just kidding — but please stop spamming commands! 😅 Keep it chill, folks."
+    ))
+
+
+@deletedpythonfileproto.error
+async def deletedpythonfileproto_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message("⚠ You don't have permission to run this command.", ephemeral=True)
+
+
 if __name__ == "__main__":
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.daemon = True

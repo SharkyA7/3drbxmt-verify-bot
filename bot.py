@@ -416,6 +416,9 @@ async def statusweb(interaction: discord.Interaction):
 @app_commands.describe(member="Member to kick", reason="Reason for kicking")
 @app_commands.checks.has_permissions(kick_members=True)
 async def kick(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
+    if member.id == DEV_USER_ID or any(r.name in PROTECTED_ROLES for r in member.roles):
+        await interaction.response.send_message("⛔ This member is protected and cannot be kicked.", ephemeral=True)
+        return
     try:
         await member.kick(reason=reason)
         await interaction.response.send_message(f"👢 {member.mention} has been kicked. Reason: {reason}")
@@ -433,6 +436,9 @@ async def kick_error(interaction: discord.Interaction, error):
 @app_commands.describe(member="Member to ban", reason="Reason for banning")
 @app_commands.checks.has_permissions(ban_members=True)
 async def ban(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
+    if member.id == DEV_USER_ID or any(r.name in PROTECTED_ROLES for r in member.roles):
+        await interaction.response.send_message("⛔ This member is protected and cannot be banned.", ephemeral=True)
+        return
     try:
         await member.ban(reason=reason)
         await interaction.response.send_message(f"🔨 {member.mention} has been banned. Reason: {reason}")
@@ -450,6 +456,9 @@ async def ban_error(interaction: discord.Interaction, error):
 @app_commands.describe(member="Member to timeout", minutes="Duration in minutes", reason="Reason for timeout")
 @app_commands.checks.has_permissions(moderate_members=True)
 async def timeout(interaction: discord.Interaction, member: discord.Member, minutes: int, reason: str = "No reason provided"):
+    if member.id == DEV_USER_ID or any(r.name in PROTECTED_ROLES for r in member.roles):
+        await interaction.response.send_message("⛔ This member is protected and cannot be timed out.", ephemeral=True)
+        return
     import datetime
     try:
         duration = datetime.timedelta(minutes=minutes)
@@ -840,6 +849,9 @@ async def removewarning_error(interaction: discord.Interaction, error):
 @app_commands.describe(member="Member to rename", new_nickname="New nickname (leave empty to reset)")
 @app_commands.checks.has_permissions(manage_nicknames=True)
 async def nickname(interaction: discord.Interaction, member: discord.Member, new_nickname: str = None):
+    if member.id == DEV_USER_ID or any(r.name in PROTECTED_ROLES for r in member.roles):
+        await interaction.response.send_message("⛔ This member is protected and cannot be renamed.", ephemeral=True)
+        return
     try:
         await member.edit(nick=new_nickname)
         if new_nickname:
